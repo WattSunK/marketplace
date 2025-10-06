@@ -7,7 +7,7 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import db from "../connector/db.js";
+import db from "../connector/db.mjs";
 
 const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
