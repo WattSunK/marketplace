@@ -1,0 +1,21 @@
+-- scripts/sql/2025-10-05_init.sql
+-- Initial schema for Tenant–Landlord Marketplace
+
+BEGIN TRANSACTION;
+
+CREATE TABLE IF NOT EXISTS migrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  filename TEXT NOT NULL,
+  applied_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT,
+  role TEXT DEFAULT 'tenant',
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMIT;

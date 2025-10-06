@@ -1,0 +1,16 @@
+{
+  "name": "marketplace-connector",
+  "version": "0.2.0",
+  "description": "Tenant–Landlord Marketplace Connector Service",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "migrate": "bash scripts/migrate.sh"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "dotenv": "^16.4.5",
+    "better-sqlite3": "^9.0.0"
+  }
+}
