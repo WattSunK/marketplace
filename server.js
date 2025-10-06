@@ -1,110 +1,58 @@
-/**
- * Tenant–Landlord Marketplace — S0-T6 Auth Integration
- * Unified Express entrypoint (with session + validation)
- */
-
-import express from "express";
+﻿import express from "express";
 import session from "express-session";
+import SQLiteStoreFactory from "connect-sqlite3";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
 import { logger, errorHandler } from "./middleware/logger.js";
 import systemHealth from "./routes/system-health.js";
-
 import usersRoutes from "./api/users/users.routes.js";
 import propertiesRoutes from "./api/properties/properties.routes.js";
 import leasesRoutes from "./api/leases/leases.routes.js";
-import authRoutes from "./routes/auth.js"; // ✅ Added for S0-T6
+import authRoutes from "./routes/auth.js";
+import { requireRole } from "./middleware/requireRole.js";
 
-// ---------------------------------------------------------------------------
-// Env + app setup
-// ---------------------------------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
 
 const PORT = process.env.PORT || 3101;
 const NODE_ENV = process.env.NODE_ENV || "development";
-
 const app = express();
-
-// JSON + logging middleware
 app.use(express.json());
 app.use(logger);
 
-// ✅ Session middleware (required for cookie-based auth)
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "change_me",
-    resave: false,
-    saveUninitialized: false,
-  })
-);
+const SQLiteStore = SQLiteStoreFactory(session);
+app.use(session({
+  store: new SQLiteStore({
+    db:"sessions.db",
+    dir: path.join(__dirname,"data/dev"),
+  }),
+  secret: process.env.SESSION_SECRET || "marketplace-dev-secret",
+  resave:false,
+  saveUninitialized:false,
+  cookie:{ maxAge:86400000,sameSite:"lax" }
+}));
 
-// ---------------------------------------------------------------------------
-// Routes
-// ---------------------------------------------------------------------------
 app.use("/api", systemHealth);
 app.use("/api/users", usersRoutes);
 app.use("/api/properties", propertiesRoutes);
 app.use("/api/leases", leasesRoutes);
-app.use("/api", authRoutes); // ✅ Mount Auth endpoints: signup/login/logout/whoami
+app.use("/api", authRoutes);
 
-// Root endpoint
-app.get("/", (_req, res) => {
-  res.json({
-    ok: true,
-    message: "Tenant–Landlord Marketplace API root",
-    endpoints: [
-      "/api/health",
-      "/api/ping",
-      "/api/version",
-      "/api/users",
-      "/api/properties",
-      "/api/leases",
-      "/api/signup",
-      "/api/login",
-      "/api/_whoami",
-      "/api/logout",
-    ],
-  });
-});
+app.use("/api/admin", requireRole("admin"), (req,res)=>res.json({ok:true,message:"Welcome Admin"}));
+app.use("/api/landlord", requireRole("landlord"), (req,res)=>res.json({ok:true,message:"Welcome Landlord"}));
+app.use("/api/tenant", requireRole("tenant"), (req,res)=>res.json({ok:true,message:"Welcome Tenant"}));
 
-// 404 + error handler
-app.use((_req, res) => res.status(404).json({ ok: false, error: "Not found" }));
+app.get("/", (_req,res)=>res.json({ ok:true, message:"Tenant–Landlord Marketplace API root" }));
+app.use((_req,res)=>res.status(404).json({ ok:false, error:"Not found" }));
 app.use(errorHandler);
 
-// ---------------------------------------------------------------------------
-// Startup
-// ---------------------------------------------------------------------------
-const server = app.listen(PORT, () => {
-  console.log(`✅ Marketplace API listening on port ${PORT} [${NODE_ENV}]`);
-});
-
-// Graceful shutdown handlers
-server.on("error", (err) => {
-  if (err.code === "EADDRINUSE") {
-    console.error(`❌ Port ${PORT} is already in use. Aborting startup.`);
-    process.exit(1);
-  } else {
-    console.error("❌ Server startup error:", err);
-    process.exit(1);
-  }
-});
-
-process.on("SIGTERM", () => {
-  console.log("🛑 Received SIGTERM, shutting down server...");
-  server.close(() => {
-    console.log("✅ Server stopped gracefully.");
-    process.exit(0);
-  });
-});
-
-process.on("SIGINT", () => {
-  console.log("🛑 Received SIGINT, shutting down server...");
-  server.close(() => {
-    console.log("✅ Server stopped gracefully.");
-    process.exit(0);
+const server = app.listen(PORT,()=>console.log(`✅ Marketplace API listening on ${PORT} [${NODE_ENV}]`));
+["SIGTERM","SIGINT"].forEach(sig=>{
+  process.on(sig,()=>{
+    console.log(`🛑 Received ${sig}, shutting down...`);
+    server.close(()=>process.exit(0));
   });
 });
