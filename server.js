@@ -1,43 +1,47 @@
+/**
+ * Tenant–Landlord Marketplace — S0-T3 API Bootstrap
+ * Unified Express entrypoint
+ */
+
 import express from "express";
-import path from "path";
-import fs from "fs";
 import dotenv from "dotenv";
+import path from "path";
 import { fileURLToPath } from "url";
-import healthRouter, { setStartTime } from "./routes/health.js";
 
-dotenv.config();
+import { logger, errorHandler } from "./middleware/logger.js";
+import systemHealth from "./routes/system-health.js";
 
+// --- resolve paths ----------------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, ".env") });
 
+// --- environment ------------------------------------------------------------
+const PORT = process.env.PORT || 3101;
+const NODE_ENV = process.env.NODE_ENV || "development";
+
+// --- express app ------------------------------------------------------------
 const app = express();
-const PORT = Number(process.env.PORT || 3101);
-
-// Ensure canonical folders exist
-const requiredDirs = [
-  path.resolve(process.env.LOG_DIR || "./logs"),
-  path.resolve(process.env.RUN_DIR || "./run"),
-  path.resolve("./data/dev"),
-  path.resolve("./docs"),
-];
-requiredDirs.forEach((d) => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); });
-
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(logger);
 
-// Static
-app.use(express.static(path.join(__dirname, "public")));
+// --- mount routes -----------------------------------------------------------
+app.use("/api", systemHealth);
 
-// Health
-setStartTime(Date.now());
-app.use("/api/health", healthRouter);
-
-// Root index for a quick “it’s up” signal
+// --- root redirect ----------------------------------------------------------
 app.get("/", (_req, res) => {
-  res.type("html").send(`<pre>Tenant–Landlord Marketplace (dev)
-GET /api/health → { ok: true, uptime, checks }</pre>`);
+  res.json({
+    ok: true,
+    message: "Tenant–Landlord Marketplace API root",
+    endpoints: ["/api/health", "/api/ping", "/api/version"],
+  });
 });
 
+// --- 404 + error handling ---------------------------------------------------
+app.use((_req, res) => res.status(404).json({ ok: false, error: "Not found" }));
+app.use(errorHandler);
+
+// --- startup ---------------------------------------------------------------
 app.listen(PORT, () => {
-  console.log(`✅ Marketplace dev server listening on http://127.0.0.1:${PORT}`);
+  console.log(`✅ Marketplace API listening on port ${PORT} [${NODE_ENV}]`);
 });
