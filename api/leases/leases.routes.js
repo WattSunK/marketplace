@@ -1,17 +1,27 @@
-// routes: /api/leases
 import express from "express";
+import db from "../../db.js";
 const router = express.Router();
 
-let leases = [
-  { id: 1, tenantId: 1, propertyId: 1, startDate: "2025-01-01", endDate: "2025-12-31" }
-];
+router.get("/", async (_req, res) => {
+  try {
+    const rows = await db.all("SELECT * FROM leases ORDER BY id DESC");
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
-router.get("/", (req, res) => res.json(leases));
-
-router.get("/:id", (req, res) => {
-  const lease = leases.find(l => l.id === Number(req.params.id));
-  if (!lease) return res.status(404).json({ error: "Lease not found" });
-  res.json(lease);
+router.post("/", async (req, res) => {
+  const { tenant_id, property_id, start_date, end_date, rent_amount } = req.body;
+  try {
+    const stmt = await db.run(
+      "INSERT INTO leases (tenant_id, property_id, start_date, end_date, rent_amount) VALUES (?, ?, ?, ?, ?)",
+      [tenant_id, property_id, start_date, end_date, rent_amount]
+    );
+    res.status(201).json({ success: true, id: stmt.lastID });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
 export default router;

@@ -1,17 +1,27 @@
-// routes: /api/properties
 import express from "express";
+import db from "../../db.js";
 const router = express.Router();
 
-let properties = [
-  { id: 1, name: "Sample Apartment", address: "123 Demo Street" }
-];
+router.get("/", async (_req, res) => {
+  try {
+    const rows = await db.all("SELECT * FROM properties ORDER BY id DESC");
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
-router.get("/", (req, res) => res.json(properties));
-
-router.get("/:id", (req, res) => {
-  const property = properties.find(p => p.id === Number(req.params.id));
-  if (!property) return res.status(404).json({ error: "Property not found" });
-  res.json(property);
+router.post("/", async (req, res) => {
+  const { name, address, landlord_id } = req.body;
+  try {
+    const stmt = await db.run(
+      "INSERT INTO properties (name, address, landlord_id) VALUES (?, ?, ?)",
+      [name, address, landlord_id]
+    );
+    res.status(201).json({ success: true, id: stmt.lastID });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
 export default router;

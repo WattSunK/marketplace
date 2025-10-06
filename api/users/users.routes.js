@@ -1,24 +1,50 @@
-// routes: /api/users
 import express from "express";
+import db from "../../db.js";
 const router = express.Router();
 
-let users = [
-  { id: 1, name: "Sample User", email: "sample@demo.com", role: "tenant" }
-];
-
-router.get("/", (req, res) => res.json(users));
-
-router.get("/:id", (req, res) => {
-  const user = users.find(u => u.id === Number(req.params.id));
-  if (!user) return res.status(404).json({ error: "User not found" });
-  res.json(user);
+router.get("/", async (_req, res) => {
+  try {
+    const rows = await db.all("SELECT * FROM users ORDER BY id DESC");
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { name, email, role } = req.body;
-  const newUser = { id: users.length + 1, name, email, role };
-  users.push(newUser);
-  res.status(201).json(newUser);
+  try {
+    const stmt = await db.run(
+      "INSERT INTO users (name, email, role) VALUES (?, ?, ?)",
+      [name, email, role]
+    );
+    res.status(201).json({ success: true, id: stmt.lastID });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+router.patch("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, email, role } = req.body;
+  try {
+    const stmt = await db.run(
+      "UPDATE users SET name=?, email=?, role=? WHERE id=?",
+      [name, email, role, id]
+    );
+    res.json({ success: stmt.changes > 0 });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    const stmt = await db.run("DELETE FROM users WHERE id=?", [req.params.id]);
+    res.json({ success: stmt.changes > 0 });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
 });
 
 export default router;
