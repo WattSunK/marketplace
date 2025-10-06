@@ -1,9 +1,10 @@
 /**
- * Tenant–Landlord Marketplace — S0-T4 Feature-Level API Scaffolding (Hardened)
- * Unified Express entrypoint
+ * Tenant–Landlord Marketplace — S0-T6 Auth Integration
+ * Unified Express entrypoint (with session + validation)
  */
 
 import express from "express";
+import session from "express-session";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -14,7 +15,11 @@ import systemHealth from "./routes/system-health.js";
 import usersRoutes from "./api/users/users.routes.js";
 import propertiesRoutes from "./api/properties/properties.routes.js";
 import leasesRoutes from "./api/leases/leases.routes.js";
+import authRoutes from "./routes/auth.js"; // ✅ Added for S0-T6
 
+// ---------------------------------------------------------------------------
+// Env + app setup
+// ---------------------------------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
@@ -23,14 +28,30 @@ const PORT = process.env.PORT || 3101;
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 const app = express();
+
+// JSON + logging middleware
 app.use(express.json());
 app.use(logger);
 
+// ✅ Session middleware (required for cookie-based auth)
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "change_me",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
 app.use("/api", systemHealth);
 app.use("/api/users", usersRoutes);
 app.use("/api/properties", propertiesRoutes);
 app.use("/api/leases", leasesRoutes);
+app.use("/api", authRoutes); // ✅ Mount Auth endpoints: signup/login/logout/whoami
 
+// Root endpoint
 app.get("/", (_req, res) => {
   res.json({
     ok: true,
@@ -42,19 +63,26 @@ app.get("/", (_req, res) => {
       "/api/users",
       "/api/properties",
       "/api/leases",
+      "/api/signup",
+      "/api/login",
+      "/api/_whoami",
+      "/api/logout",
     ],
   });
 });
 
+// 404 + error handler
 app.use((_req, res) => res.status(404).json({ ok: false, error: "Not found" }));
 app.use(errorHandler);
 
-// --- startup ---------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Startup
+// ---------------------------------------------------------------------------
 const server = app.listen(PORT, () => {
   console.log(`✅ Marketplace API listening on port ${PORT} [${NODE_ENV}]`);
 });
 
-// --- graceful error handling -----------------------------------------------
+// Graceful shutdown handlers
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
     console.error(`❌ Port ${PORT} is already in use. Aborting startup.`);
