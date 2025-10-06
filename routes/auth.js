@@ -1,16 +1,24 @@
-﻿import express from "express";
+﻿// routes/auth.js — Persistent Users in SQLite (S0-T8)
+// ------------------------------------------------------------
+// Replaces in-memory user array with database persistence
+// Keeps: Joi validation, validateBody middleware, hash/verify helpers
+
+import express from "express";
 import Joi from "joi";
+import { db } from "../connector/db.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { validateBody } from "../middleware/validate.js";
 
 const router = express.Router();
-const users = [];
 
+// ------------------------------------------------------------
+// Validation Schemas
+// ------------------------------------------------------------
 const signupSchema = Joi.object({
   name: Joi.string().min(2).max(100).required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(),
-  role: Joi.string().valid("tenant","landlord","admin").default("tenant"),
+  role: Joi.string().valid("tenant", "landlord", "admin").default("tenant"),
 });
 
 const loginSchema = Joi.object({
@@ -18,35 +26,75 @@ const loginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
-router.post("/signup", validateBody(signupSchema), async (req,res)=>{
-  const { name,email,password,role } = req.body;
-  if (users.find(u=>u.email===email))
-    return res.status(400).json({ error:"Email already exists" });
-  const hashed = await hashPassword(password);
-  const user = { id: users.length+1, name, email, password: hashed, role };
-  users.push(user);
-  res.json({ success:true, message:"User created" });
+// ------------------------------------------------------------
+// POST /api/signup
+// ------------------------------------------------------------
+router.post("/signup", validateBody(signupSchema), async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+
+    // 1️⃣ Check for duplicate email
+    const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+    if (existing)
+      return res.status(400).json({ success: false, error: "Email already exists" });
+
+    // 2️⃣ Hash password and insert new record
+    const hashed = await hashPassword(password);
+    const stmt = db.prepare(
+      "INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)"
+    );
+    const result = stmt.run(name, email, hashed, role);
+
+    // 3️⃣ Save minimal user info in session
+    req.session.user = { id: result.lastInsertRowid, name, email, role };
+    res.json({ success: true, message: "User created", user: req.session.user });
+  } catch (err) {
+    console.error("[signup]", err);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
 });
 
-router.post("/login", validateBody(loginSchema), async (req,res)=>{
-  const { email,password } = req.body;
-  const user = users.find(u=>u.email===email);
-  if (!user)
-    return res.status(400).json({ error:"Invalid email or password" });
-  const match = await verifyPassword(password,user.password);
-  if (!match)
-    return res.status(400).json({ error:"Invalid email or password" });
-  req.session.user = { id:user.id,name:user.name,email:user.email,role:user.role };
-  res.json({ success:true,user:req.session.user });
+// ------------------------------------------------------------
+// POST /api/login
+// ------------------------------------------------------------
+router.post("/login", validateBody(loginSchema), async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // 1️⃣ Look up user
+    const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+    if (!user)
+      return res.status(400).json({ success: false, error: "Invalid email or password" });
+
+    // 2️⃣ Verify password
+    const match = await verifyPassword(password, user.password_hash);
+    if (!match)
+      return res.status(400).json({ success: false, error: "Invalid email or password" });
+
+    // 3️⃣ Store minimal identity in session
+    req.session.user = { id: user.id, name: user.name, email: user.email, role: user.role };
+    res.json({ success: true, user: req.session.user });
+  } catch (err) {
+    console.error("[login]", err);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
 });
 
-router.get("/_whoami",(req,res)=>{
-  if(req.session?.user){ res.json({ success:true,user:req.session.user }); }
-  else{ res.json({ success:false,user:null }); }
+// ------------------------------------------------------------
+// GET /api/_whoami
+// ------------------------------------------------------------
+router.get("/_whoami", (req, res) => {
+  if (req.session?.user)
+    res.json({ success: true, user: req.session.user });
+  else
+    res.json({ success: false, user: null });
 });
 
-router.post("/logout",(req,res)=>{
-  req.session.destroy(()=>res.json({ success:true }));
+// ------------------------------------------------------------
+// POST /api/logout
+// ------------------------------------------------------------
+router.post("/logout", (req, res) => {
+  req.session.destroy(() => res.json({ success: true }));
 });
 
 export default router;
