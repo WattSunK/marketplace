@@ -1,5 +1,5 @@
 /**
- * Tenant–Landlord Marketplace — S0-T3 API Bootstrap
+ * Tenant–Landlord Marketplace — S0-T4 Feature-Level API Scaffolding
  * Unified Express entrypoint
  */
 
@@ -10,6 +10,11 @@ import { fileURLToPath } from "url";
 
 import { logger, errorHandler } from "./middleware/logger.js";
 import systemHealth from "./routes/system-health.js";
+
+// === NEW: domain feature routes (S0-T4) ====================================
+import usersRoutes from "./api/users/users.routes.js";
+import propertiesRoutes from "./api/properties/properties.routes.js";
+import leasesRoutes from "./api/leases/leases.routes.js";
 
 // --- resolve paths ----------------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
@@ -26,14 +31,27 @@ app.use(express.json());
 app.use(logger);
 
 // --- mount routes -----------------------------------------------------------
+// system health / base
 app.use("/api", systemHealth);
+
+// === NEW: feature-level domain endpoints ===================================
+app.use("/api/users", usersRoutes);
+app.use("/api/properties", propertiesRoutes);
+app.use("/api/leases", leasesRoutes);
 
 // --- root redirect ----------------------------------------------------------
 app.get("/", (_req, res) => {
   res.json({
     ok: true,
     message: "Tenant–Landlord Marketplace API root",
-    endpoints: ["/api/health", "/api/ping", "/api/version"],
+    endpoints: [
+      "/api/health",
+      "/api/ping",
+      "/api/version",
+      "/api/users",
+      "/api/properties",
+      "/api/leases",
+    ],
   });
 });
 

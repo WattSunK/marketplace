@@ -1,0 +1,8 @@
+export const PROPERTY_SCHEMA = `
+CREATE TABLE IF NOT EXISTS properties (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  address TEXT,
+  landlord_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`;
