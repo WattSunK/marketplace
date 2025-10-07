@@ -37,7 +37,7 @@ git pull origin main >> "$LOG_FILE" 2>&1 || true
 # --- 4️⃣ Detect & heal untracked-file conflicts -----------------------------
 if grep -q "would be overwritten by merge" "$LOG_FILE"; then
   echo "[WARN] Merge conflict detected (untracked files)." >> "$LOG_FILE"
-  BACKUP_DIR="/volume1/web/marketplace/backup_conflicts_$(date +%F_%H%M%S)"
+  BACKUP_DIR="/volume1/web/marketplace/logs/backup_conflicts_$(date +%F_%H%M%S)"
   mkdir -p "$BACKUP_DIR"
   echo "[ACTION] Backing up conflicting files to $BACKUP_DIR" >> "$LOG_FILE"
   grep "would be overwritten by merge" "$LOG_FILE" | awk '{print $NF}' | while read -r FILE; do
