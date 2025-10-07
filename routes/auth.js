@@ -4,7 +4,7 @@
 // Keeps: Joi validation, validateBody middleware, hash/verify helpers
 
 import express from "express";
-import Joi from "joi";
+import * as Joi from 'joi';
 import { db } from "../connector/db.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { validateBody } from "../middleware/validate.js";
