@@ -1,10 +1,12 @@
-﻿// routes/auth.js — Persistent Users in SQLite (S0-T8)
+﻿// routes/auth.js — Persistent Users in SQLite (S0-T8 → S0-T9)
 // ------------------------------------------------------------
-// Replaces in-memory user array with database persistence
-// Keeps: Joi validation, validateBody middleware, hash/verify helpers
+// Database-backed signup/login with Joi validation,
+// password hashing, and Express-session persistence.
 
 import express from "express";
-import * as Joi from 'joi';
+import JoiPkg from "joi";
+const Joi = JoiPkg.default || JoiPkg;
+
 import { db } from "../connector/db.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { validateBody } from "../middleware/validate.js";
@@ -31,12 +33,15 @@ const loginSchema = Joi.object({
 // ------------------------------------------------------------
 router.post("/signup", validateBody(signupSchema), async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const name = req.body.name.trim();
+    const email = req.body.email.trim().toLowerCase();
+    const { password, role } = req.body;
 
     // 1️⃣ Check for duplicate email
     const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
-    if (existing)
+    if (existing) {
       return res.status(400).json({ success: false, error: "Email already exists" });
+    }
 
     // 2️⃣ Hash password and insert new record
     const hashed = await hashPassword(password);
@@ -47,10 +52,10 @@ router.post("/signup", validateBody(signupSchema), async (req, res) => {
 
     // 3️⃣ Save minimal user info in session
     req.session.user = { id: result.lastInsertRowid, name, email, role };
-    res.json({ success: true, message: "User created", user: req.session.user });
+    return res.json({ success: true, message: "User created", user: req.session.user });
   } catch (err) {
     console.error("[signup]", err);
-    res.status(500).json({ success: false, error: "Internal server error" });
+    return res.status(500).json({ success: false, error: "Internal server error" });
   }
 });
 
@@ -59,24 +64,29 @@ router.post("/signup", validateBody(signupSchema), async (req, res) => {
 // ------------------------------------------------------------
 router.post("/login", validateBody(loginSchema), async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = req.body.email.trim().toLowerCase();
+    const password = req.body.password;
 
     // 1️⃣ Look up user
     const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
-    if (!user)
+    if (!user) {
+      req.session.user = null;
       return res.status(400).json({ success: false, error: "Invalid email or password" });
+    }
 
     // 2️⃣ Verify password
     const match = await verifyPassword(password, user.password_hash);
-    if (!match)
+    if (!match) {
+      req.session.user = null;
       return res.status(400).json({ success: false, error: "Invalid email or password" });
+    }
 
     // 3️⃣ Store minimal identity in session
     req.session.user = { id: user.id, name: user.name, email: user.email, role: user.role };
-    res.json({ success: true, user: req.session.user });
+    return res.json({ success: true, user: req.session.user });
   } catch (err) {
     console.error("[login]", err);
-    res.status(500).json({ success: false, error: "Internal server error" });
+    return res.status(500).json({ success: false, error: "Internal server error" });
   }
 });
 
@@ -84,10 +94,11 @@ router.post("/login", validateBody(loginSchema), async (req, res) => {
 // GET /api/_whoami
 // ------------------------------------------------------------
 router.get("/_whoami", (req, res) => {
-  if (req.session?.user)
+  if (req.session?.user) {
     res.json({ success: true, user: req.session.user });
-  else
+  } else {
     res.json({ success: false, user: null });
+  }
 });
 
 // ------------------------------------------------------------
