@@ -2,7 +2,7 @@
 
 import express from "express";
 import db from "../connector/db.mjs";
-import requireRole from "../middleware/requireRole.js";
+import { requireRole } from "../middleware/requireRole.js";
 
 const router = express.Router();
 
