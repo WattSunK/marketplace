@@ -1,6 +1,6 @@
 // /connector/session.js
 // ==================================================
-// 🔐 Session Connector
+// 🔐 Session Connector (S0-T9 Patched Version)
 // --------------------------------------------------
 // Centralizes session and user restoration logic.
 // Works with express-session (cookie-based) or JWT.
@@ -29,13 +29,17 @@ const storePath = path.join(__dirname, '../data/dev/session.db');
 // 1️⃣  Express Session Setup
 // ==================================================
 export const sessionMiddleware = session({
-  store: new SQLiteStore({ db: 'session.db', dir: path.dirname(storePath) }),
+  store: new SQLiteStore({
+    db: 'session.db',
+    dir: path.dirname(storePath),
+  }),
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 1 day
     httpOnly: true,
+    sameSite: 'lax',
   },
 });
 
@@ -56,28 +60,37 @@ function decodeJWT(token) {
 // ==================================================
 export async function attachUser(req, res, next) {
   try {
-    // 1. Try from session
+    // 1️⃣ Restore from session (primary)
     if (req.session && req.session.user) {
-      req.user = req.session.user;
+      const sessUser = req.session.user;
+      // If only a minimal session is stored, re-fetch role data from DB
+      const dbUser = db
+        .prepare('SELECT id, name, email, role FROM users WHERE id = ?')
+        .get(sessUser.id);
+
+      // Prefer DB version if found; fallback to session copy
+      req.user = dbUser || sessUser;
       return next();
     }
 
-    // 2. Try from Authorization: Bearer <token>
+    // 2️⃣ Fallback: Authorization header → Bearer <token>
     const authHeader = req.headers['authorization'];
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader?.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const decoded = decodeJWT(token);
-      if (decoded && decoded.email) {
+      if (decoded?.email) {
         const user = db
           .prepare('SELECT id, name, email, role FROM users WHERE email = ?')
           .get(decoded.email);
         if (user) {
           req.user = user;
+          // Optionally persist session for future requests
+          req.session.user = user;
         }
       }
     }
 
-    // 3. Continue regardless; downstream auth checks will enforce
+    // 3️⃣ Continue (req.user will remain undefined if not logged in)
     return next();
   } catch (err) {
     console.error('[session] attachUser failed:', err.message);
@@ -98,13 +111,14 @@ export function startUserSession(req, res, user, useJWT = false) {
     return res.json({ success: true, token, user });
   }
 
-  // Session-based
+  // Session-based (cookie)
   req.session.user = {
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
   };
+
   return res.json({
     success: true,
     user: req.session.user,
