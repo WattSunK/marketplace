@@ -56,26 +56,25 @@ router.get("/health", (_req, res) => {
       }
 
       if (tables.includes("units")) {
-  const { count } = db
-    .prepare("SELECT COUNT(*) AS count FROM units")
-    .get();
-  entityCounts.units = count;
-}
+        const { count } = db
+          .prepare("SELECT COUNT(*) AS count FROM units")
+          .get();
+        entityCounts.units = count;
+      }
 
-if (tables.includes("leases")) {
-  const { count } = db
-    .prepare("SELECT COUNT(*) AS count FROM leases")
-    .get();
-  entityCounts.leases = count;
-}
+      if (tables.includes("leases")) {
+        const { count } = db
+          .prepare("SELECT COUNT(*) AS count FROM leases")
+          .get();
+        entityCounts.leases = count;
+      }
 
-if (tables.includes("payments")) {
-  const { count } = db
-    .prepare("SELECT COUNT(*) AS count FROM payments")
-    .get();
-  entityCounts.payments = count;
-}
-
+      if (tables.includes("payments")) {
+        const { count } = db
+          .prepare("SELECT COUNT(*) AS count FROM payments")
+          .get();
+        entityCounts.payments = count;
+      }
     }
   } catch (err) {
     console.error("DB health check error:", err.message);
