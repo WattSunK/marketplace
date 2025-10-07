@@ -56,12 +56,13 @@ router.get("/health", (_req, res) => {
       }
 
       if (tables.includes("units")) {
-        const { count } = db
-          .prepare("SELECT COUNT(*) AS count FROM units")
-          .get();
-        entityCounts.units = count;
-      }
-      if (tables.includes("leases")) {
+  const { count } = db
+    .prepare("SELECT COUNT(*) AS count FROM units")
+    .get();
+  entityCounts.units = count;
+}
+
+if (tables.includes("leases")) {
   const { count } = db
     .prepare("SELECT COUNT(*) AS count FROM leases")
     .get();
