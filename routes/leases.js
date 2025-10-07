@@ -1,4 +1,4 @@
-// routes/leases.js — aligned with actual leases schema
+// routes/leases.js — aligned with actual leases schema, S1-T4 property joins
 
 import express from "express";
 import db from "../connector/db.mjs";
@@ -6,7 +6,7 @@ import { requireRole } from "../middleware/requireRole.js";
 
 const router = express.Router();
 
-// 🧱 GET all leases (paginated)
+// 🧱 GET all leases (paginated, enriched with property info)
 router.get("/", requireRole(["admin", "landlord", "tenant"]), (req, res) => {
   try {
     const page = parseInt(req.query.page || "1");
@@ -15,9 +15,21 @@ router.get("/", requireRole(["admin", "landlord", "tenant"]), (req, res) => {
 
     const leases = db
       .prepare(
-        `SELECT * FROM leases ORDER BY id DESC LIMIT ? OFFSET ?`
+        `SELECT l.*, 
+                p.name AS property_name, 
+                p.address AS property_address
+         FROM leases l
+         LEFT JOIN properties p ON p.id = l.property_id
+         WHERE 1=1
+         ${req.query.property_id ? "AND l.property_id = @property_id" : ""}
+         ORDER BY l.id DESC
+         LIMIT @per OFFSET @offset`
       )
-      .all(per, offset);
+      .all({
+        property_id: req.query.property_id,
+        per,
+        offset,
+      });
 
     res.json({ success: true, data: leases, page, per });
   } catch (err) {
@@ -26,16 +38,23 @@ router.get("/", requireRole(["admin", "landlord", "tenant"]), (req, res) => {
   }
 });
 
-// 🧱 GET single lease by ID
+// 🧱 GET single lease by ID (joined with property)
 router.get("/:id", requireRole(["admin", "landlord", "tenant"]), (req, res) => {
   try {
     const lease = db
-      .prepare(`SELECT * FROM leases WHERE id = ?`)
+      .prepare(
+        `SELECT l.*, 
+                p.name AS property_name, 
+                p.address AS property_address
+         FROM leases l
+         LEFT JOIN properties p ON p.id = l.property_id
+         WHERE l.id = ?`
+      )
       .get(req.params.id);
+
     if (!lease)
       return res.status(404).json({ success: false, error: "Lease not found" });
 
-    // Attach payments for linkage test
     const payments = db
       .prepare(`SELECT * FROM payments WHERE lease_id = ?`)
       .all(req.params.id);
@@ -48,7 +67,7 @@ router.get("/:id", requireRole(["admin", "landlord", "tenant"]), (req, res) => {
   }
 });
 
-// 🧱 CREATE lease
+// 🧱 CREATE lease (auto-links property_id from unit)
 router.post("/", requireRole(["admin", "landlord"]), (req, res) => {
   try {
     const { unit_id, tenant_id, start_date, end_date, rent_amount, status } =
@@ -59,12 +78,17 @@ router.post("/", requireRole(["admin", "landlord"]), (req, res) => {
         .status(400)
         .json({ success: false, error: "Missing required fields" });
 
+    // Derive property_id from the selected unit
+    const unit = db.prepare("SELECT property_id FROM units WHERE id = ?").get(unit_id);
+    const property_id = unit ? unit.property_id : null;
+
     const stmt = db.prepare(
-      `INSERT INTO leases (unit_id, tenant_id, start_date, end_date, rent_cents, status)
-       VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO leases (unit_id, property_id, tenant_id, start_date, end_date, rent_cents, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     );
     const result = stmt.run(
       unit_id,
+      property_id,
       tenant_id,
       start_date,
       end_date,
@@ -79,7 +103,7 @@ router.post("/", requireRole(["admin", "landlord"]), (req, res) => {
   }
 });
 
-// 🧱 UPDATE lease
+// 🧱 UPDATE lease (unchanged)
 router.put("/:id", requireRole(["admin", "landlord"]), (req, res) => {
   try {
     const { start_date, end_date, rent_amount, status } = req.body;
