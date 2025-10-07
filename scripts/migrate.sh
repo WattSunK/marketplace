@@ -1,24 +1,11 @@
-#!/bin/sh
-set -eu
-ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-SQL_DIR="${SQL_DIR:-$ROOT_DIR/scripts/sql}"
-DB_PATH="${DB_PATH:-$ROOT_DIR/data/dev/marketplace.dev.db}"
-
-mkdir -p "$(dirname "$DB_PATH")"
-echo "DB_PATH=$DB_PATH"
-
-if command -v sqlite3 >/dev/null 2>&1; then
-  if [ -d "$SQL_DIR" ]; then
-    for f in "$SQL_DIR"/*.sql; do
-      [ -e "$f" ] || continue
-      echo "Applying $f..."
-      sqlite3 "$DB_PATH" < "$f"
-    done
-  else
-    echo "No SQL directory ($SQL_DIR); skipping."
-  fi
-else
-  echo "sqlite3 not found; skipping DB migrations."
+#!/bin/bash
+# scripts/migrate.sh
+set -e
+DB_PATH="/volume1/web/marketplace/data/dev/marketplace.dev.db"
+echo "🚀 Applying S1-T1 migrations..."
+sqlite3 "$DB_PATH" < scripts/sql/2025-10-08_create_entities.sql
+if [ -f scripts/sql/2025-10-08_seed_entities.sql ]; then
+  echo "🌱 Inserting seed data..."
+  sqlite3 "$DB_PATH" < scripts/sql/2025-10-08_seed_entities.sql
 fi
-
-echo "Done."
+echo "✅ Migration complete."
