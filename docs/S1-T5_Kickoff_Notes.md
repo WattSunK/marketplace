@@ -68,3 +68,64 @@ WHERE lease_id IS NULL;
 
 ### 🧭 Next Phase Preview
 S1-T6 will extend the financial model with **invoicing**, **receipts**, and optional **tenant payment schedules**, building on these payment-link foundations.
+
+
+# S1-T5 Update Notes — Lease–Payment Linkage & Derived Totals
+_Date: 08 Oct 2025_
+
+## ✅ Summary of Achievements
+S1-T5 successfully implemented and verified the **Lease ↔ Payment linkage** layer, providing per-lease payment summaries, computed balances, and reliable health metrics.
+
+| Area | Outcome |
+|-------|----------|
+| **Schema** | `payments` table confirmed to include `lease_id INTEGER NOT NULL REFERENCES leases(id)` with active foreign-key enforcement. |
+| **Data Integrity** | 4 / 4 payments correctly linked to valid leases; `unlinked = 0`. |
+| **APIs Updated** | `/api/payments` enriched with lease / unit / property context.<br>`/api/leases` and `/api/leases/:id` expose totals: `total_rent`, `total_paid`, `balance_due`. |
+| **Health Endpoint** | `/api/health` extended to show `payments_linkage { linked, unlinked }` counts. |
+| **Testing** | `tests/api_lease_payment_verify.sh` executed end-to-end with no errors after authentication fix. |
+| **Verification** | SQL joins, role-based access, and totals confirmed via `curl + sqlite3` probes. |
+| **Tag** | `S1-T5-complete` pushed to GitHub (`Lease–Payment linkage & derived totals verified`). |
+
+---
+
+## 🧩 Technical Notes
+- No migration required — schema already compliant.  
+- Incremental patch added computed-total logic to `routes/leases.js` and linkage counts to `routes/system-health.js`.  
+- Role middleware adjusted (`requireAnyRole`) to restore admin access.  
+- All session and dependency issues resolved (`express-session`, `connect-sqlite3`, `better-sqlite3`, `joi`, etc.).  
+
+---
+
+## 🧪 Verification Evidence
+**Database Results**
+```
+SELECT COUNT(*) AS total, SUM(CASE WHEN lease_id IS NOT NULL THEN 1 ELSE 0 END) AS linked
+FROM payments;
+→ 4 total / 4 linked / 0 unlinked
+```
+**Lease Summary**
+```
+Lease 1: rent = 1600 KSH, paid = 3300 KSH → balance = -1700 (over-paid)
+Lease 2: rent = 1500 KSH, paid = 0 → balance = 1500 (due)
+```
+**API Verification**
+```
+/api/payments         → contextual lease + property data visible  
+/api/leases/:id       → totals & nested payments confirmed  
+/api/health           → payments_linkage { linked: 4, unlinked: 0 }
+```
+
+---
+
+## 🏁 Definition of Done — Confirmed
+☑ Database structure verified  
+☑ All payments linked  
+☑ Computed totals accurate  
+☑ Health metrics extended  
+☑ Automated script executed successfully  
+☑ Tag `S1-T5-complete` created and pushed  
+
+---
+
+## 🔜 Transition to S1-T6
+Next sprint (**Invoicing & Receipts Layer**) builds directly on this verified linkage to support invoice generation, receipt issuance, and financial document tracking.
