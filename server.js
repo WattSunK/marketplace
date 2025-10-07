@@ -1,4 +1,4 @@
-﻿// /server.js — Tenant–Landlord Marketplace API
+﻿﻿// /server.js — Tenant–Landlord Marketplace API
 // ==================================================
 // 🏠 Integrates role-based authorization (S0–S1)
 // with persistent sessions, DB health reporting,
@@ -16,7 +16,10 @@ import healthRouter from "./routes/health.js";          // Infrastructure-level 
 import authRouter from "./routes/auth.js";
 import usersRoutes from "./api/users/users.routes.js";
 import propertiesRoutes from "./api/properties/properties.routes.js";
-import leasesRoutes from "./api/leases/leases.routes.js";
+
+// === 🆕 S1-T3 New Routes (Leases + Payments) ===
+import leasesRouter from "./routes/leases.js";
+import paymentsRouter from "./routes/payments.js";
 
 import { sessionMiddleware, attachUser } from "./connector/session.js";
 import { requireAuth, requireRole, requireAnyRole } from "./middleware/auth.js";
@@ -31,7 +34,7 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 
 const PORT = process.env.PORT || 3101;
 const NODE_ENV = process.env.NODE_ENV || "development";
-const APP_VERSION = process.env.APP_VERSION || "S1-T2";
+const APP_VERSION = process.env.APP_VERSION || "S1-T3";
 
 const app = express();
 
@@ -57,10 +60,13 @@ app.use("/api", systemHealthRouter); // /api/health, /api/ping, /api/version
 app.use("/_ops/health", healthRouter); // /_ops/health
 
 // 🔹 Auth + Core Business APIs
-app.use("/api/auth", authRouter);           // /api/auth/login, /api/auth/signup
-app.use("/api/users", usersRoutes);         // /api/users
+app.use("/api/auth", authRouter);            // /api/auth/login, /api/auth/signup
+app.use("/api/users", usersRoutes);          // /api/users
 app.use("/api/properties", propertiesRoutes); // /api/properties
-app.use("/api/leases", leasesRoutes);       // /api/leases
+
+// === 🆕 Mount S1-T3 Endpoints ===
+app.use("/api/leases", leasesRouter);         // /api/leases
+app.use("/api/payments", paymentsRouter);     // /api/payments
 
 // ==================================================
 // 3️⃣  Role-Based Test Endpoints
