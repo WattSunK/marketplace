@@ -39,13 +39,14 @@ router.get("/health", (_req, res) => {
         migrationCount = c ? c.m : 0;
       }
 
-      // --- Entity counts (S1-T2) ---
+      // --- Entity counts (S1-T3) ---
       const tables = db
-        .prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('properties','units')"
-        )
-        .all()
-        .map((r) => r.name);
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('properties','units','leases','payments')"
+      )
+      .all()
+      .map((r) => r.name);
+
 
       if (tables.includes("properties")) {
         const { count } = db
@@ -60,6 +61,20 @@ router.get("/health", (_req, res) => {
           .get();
         entityCounts.units = count;
       }
+      if (tables.includes("leases")) {
+  const { count } = db
+    .prepare("SELECT COUNT(*) AS count FROM leases")
+    .get();
+  entityCounts.leases = count;
+}
+
+if (tables.includes("payments")) {
+  const { count } = db
+    .prepare("SELECT COUNT(*) AS count FROM payments")
+    .get();
+  entityCounts.payments = count;
+}
+
     }
   } catch (err) {
     console.error("DB health check error:", err.message);
