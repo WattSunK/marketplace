@@ -1,21 +1,12 @@
-/**
- * routes/system-health.js
- * Implements /api/health, /api/ping, /api/version
- * Extended in S1-T2 to include Property & Unit entity counts
- */
-
+// routes/system-health.js — baseline + S1-T5 incremental linkage counts
 import express from "express";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import db from "../connector/db.mjs";
 
 const router = express.Router();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const startTime = Date.now();
-const VERSION = "0.3.2"; // Incremented after S1-T2 integration
+const VERSION = "0.3.3"; // increment after S1-T5
 
 // --- /api/health ------------------------------------------------------------
 router.get("/health", (_req, res) => {
@@ -23,56 +14,57 @@ router.get("/health", (_req, res) => {
   let connected = false;
   let migrationCount = 0;
   let entityCounts = { properties: 0, units: 0, leases: 0, payments: 0 };
+  let paymentsLinkage = { linked: 0, unlinked: 0 };
+
   try {
     if (fs.existsSync(path.resolve(dbPath))) {
       connected = true;
 
-      // --- Migrations count ---
-      const row = db
-        .prepare(
-          "SELECT COUNT(*) AS cnt FROM sqlite_master WHERE type='table' AND name='migrations'"
-        )
-        .get();
+      const row = db.prepare(
+        "SELECT COUNT(*) AS cnt FROM sqlite_master WHERE type='table' AND name='migrations'"
+      ).get();
       if (row && row.cnt > 0) {
         const c = db.prepare("SELECT COUNT(*) AS m FROM migrations").get();
         migrationCount = c ? c.m : 0;
       }
 
-      // --- Entity counts (S1-T3) ---
       const tables = db
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('properties','units','leases','payments')"
-      )
-      .all()
-      .map((r) => r.name);
-
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('properties','units','leases','payments')"
+        )
+        .all()
+        .map((r) => r.name);
 
       if (tables.includes("properties")) {
-        const { count } = db
-          .prepare("SELECT COUNT(*) AS count FROM properties")
-          .get();
+        const { count } = db.prepare("SELECT COUNT(*) AS count FROM properties").get();
         entityCounts.properties = count;
       }
-
       if (tables.includes("units")) {
-        const { count } = db
-          .prepare("SELECT COUNT(*) AS count FROM units")
-          .get();
+        const { count } = db.prepare("SELECT COUNT(*) AS count FROM units").get();
         entityCounts.units = count;
       }
-
       if (tables.includes("leases")) {
-        const { count } = db
-          .prepare("SELECT COUNT(*) AS count FROM leases")
-          .get();
+        const { count } = db.prepare("SELECT COUNT(*) AS count FROM leases").get();
         entityCounts.leases = count;
       }
-
       if (tables.includes("payments")) {
-        const { count } = db
-          .prepare("SELECT COUNT(*) AS count FROM payments")
-          .get();
+        const { count } = db.prepare("SELECT COUNT(*) AS count FROM payments").get();
         entityCounts.payments = count;
+      }
+
+      // 🔹 S1-T5 enhancement: count linked/unlinked payments
+      try {
+        const link = db
+          .prepare(
+            "SELECT " +
+            "SUM(CASE WHEN lease_id IS NOT NULL THEN 1 ELSE 0 END) AS linked, " +
+            "SUM(CASE WHEN lease_id IS NULL THEN 1 ELSE 0 END) AS unlinked " +
+            "FROM payments"
+          )
+          .get();
+        if (link) paymentsLinkage = link;
+      } catch (err) {
+        console.error("[system-health:S1-T5]", err.message);
       }
     }
   } catch (err) {
@@ -87,7 +79,9 @@ router.get("/health", (_req, res) => {
       path: path.resolve(dbPath),
       migrations: migrationCount,
       entities: entityCounts,
+      payments_linkage: paymentsLinkage,
     },
+    version: VERSION,
   });
 });
 

@@ -1,4 +1,4 @@
-// routes/leases.js — aligned with actual leases schema, S1-T4 property joins
+// routes/leases.js — aligned with actual leases schema, S1-T4 property joins + S1-T5 computed totals
 
 import express from "express";
 import db from "../connector/db.mjs";
@@ -31,6 +31,18 @@ router.get("/", requireRole(["admin", "landlord", "tenant"]), (req, res) => {
         offset,
       });
 
+    // 🔹 S1-T5 enhancement: compute totals inline for each lease
+    for (const l of leases) {
+      const pay = db
+        .prepare("SELECT SUM(amount_cents) AS total FROM payments WHERE lease_id = ?")
+        .get(l.id);
+      const paid = pay && pay.total ? pay.total / 100 : 0;
+      const rent = (l.rent_cents || 0) / 100;
+      l.total_rent = rent;
+      l.total_paid = paid;
+      l.balance_due = rent - paid;
+    }
+
     res.json({ success: true, data: leases, page, per });
   } catch (err) {
     console.error("[leases:list]", err);
@@ -59,6 +71,12 @@ router.get("/:id", requireRole(["admin", "landlord", "tenant"]), (req, res) => {
       .prepare(`SELECT * FROM payments WHERE lease_id = ?`)
       .all(req.params.id);
     lease.payments = payments;
+
+    // 🔹 S1-T5 enhancement: compute derived totals
+    const totalPaid = payments.reduce((sum, p) => sum + (p.amount_cents || 0), 0);
+    lease.total_rent = lease.rent_cents / 100;
+    lease.total_paid = totalPaid / 100;
+    lease.balance_due = lease.total_rent - lease.total_paid;
 
     res.json({ success: true, data: lease });
   } catch (err) {

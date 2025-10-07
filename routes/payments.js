@@ -1,5 +1,4 @@
-// routes/payments.js — aligned with actual payments schema
-
+// routes/payments.js — baseline + S1-T5 incremental enrichment
 import express from "express";
 import db from "../connector/db.mjs";
 import { requireRole } from "../middleware/requireRole.js";
@@ -12,7 +11,25 @@ router.get("/", requireRole(["admin", "landlord", "tenant"]), (req, res) => {
     const payments = db
       .prepare(`SELECT * FROM payments ORDER BY id DESC`)
       .all();
-    res.json({ success: true, data: payments });
+
+    // 🔹 S1-T5 enhancement: join lease + property context
+    const enriched = db
+      .prepare(`
+        SELECT 
+          p.*,
+          l.tenant_id AS lease_tenant_id,
+          l.unit_id AS lease_unit_id,
+          l.property_id AS lease_property_id,
+          u.name AS unit_name,
+          pr.name AS property_name
+        FROM payments p
+        LEFT JOIN leases l ON l.id = p.lease_id
+        LEFT JOIN units u ON u.id = l.unit_id
+        LEFT JOIN properties pr ON pr.id = l.property_id
+        ORDER BY p.id DESC
+      `)
+      .all();
+    return res.json({ success: true, data: enriched });
   } catch (err) {
     console.error("[payments:list]", err);
     res.status(500).json({ success: false, error: err.message });

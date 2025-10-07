@@ -43,3 +43,22 @@ WHERE property_id IS NULL;
 - [ ] Health shows property-lease linkage counts  
 - [ ] `S1-T4` verification script passes  
 - [ ] Tag `S1-T4-complete` pushed
+
+
+---
+
+## 🧩 Verification & Completion Summary
+_Date Verified: 07 Oct 2025_
+
+| Check | Result |
+|--------|--------|
+| property_id column added | ✅ |
+| Backfill successful | ✅ |
+| /api/leases join enrichment | ✅ |
+| Filtering by property_id | ✅ |
+| /_ops/health counts | ✅ |
+| Authenticated test via superadmin@example.com | ✅ |
+| Automated script v3 (jq) | ✅ |
+| Tag pushed | `S1-T4-complete` |
+
+**Next:** Proceed to S1-T5 — Lease–Payment Linkage & Derived Totals
