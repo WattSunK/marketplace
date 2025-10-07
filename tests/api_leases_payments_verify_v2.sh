@@ -53,7 +53,7 @@ check "List Leases (admin)" \
 
 check "Create Lease (admin)" \
   "curl -s -X POST -H 'Content-Type: application/json' -b $COOKIE_FILE \
-   -d '{\"tenant_id\":6,\"property_id\":1,\"unit_id\":1,\"start_date\":\"2025-10-15\",\"end_date\":\"2026-10-15\",\"rent_amount\":1500}' \
+   -d '{"tenant_id":3,"unit_id":1,\"start_date\":\"2025-10-15\",\"end_date\":\"2026-10-15\",\"rent_amount\":1500}' \
    $BASE_URL/api/leases" '"success":true'
 
 check "Fetch Lease by ID" \
