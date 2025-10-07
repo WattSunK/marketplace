@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS payments (
   paid_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (lease_id) REFERENCES leases(id) ON DELETE CASCADE
 );
-INSERT INTO migrations (name, applied_at)
+-- Migration log entry (using filename for backward compatibility)
+INSERT INTO migrations (filename, applied_at)
 SELECT '2025-10-08_create_entities.sql', datetime('now')
-WHERE NOT EXISTS (SELECT 1 FROM migrations WHERE name='2025-10-08_create_entities.sql');
+WHERE NOT EXISTS (SELECT 1 FROM migrations WHERE filename='2025-10-08_create_entities.sql');
+
