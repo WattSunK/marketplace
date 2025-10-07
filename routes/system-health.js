@@ -15,15 +15,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const startTime = Date.now();
-const VERSION = "0.3.1"; // Incremented after S1-T2 integration
+const VERSION = "0.3.2"; // Incremented after S1-T2 integration
 
 // --- /api/health ------------------------------------------------------------
 router.get("/health", (_req, res) => {
   const dbPath = process.env.DB_PATH || "data/dev/marketplace.dev.db";
   let connected = false;
   let migrationCount = 0;
-  let entityCounts = { properties: 0, units: 0 };
-
+  let entityCounts = { properties: 0, units: 0, leases: 0, payments: 0 };
   try {
     if (fs.existsSync(path.resolve(dbPath))) {
       connected = true;
