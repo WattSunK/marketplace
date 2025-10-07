@@ -1,6 +1,7 @@
 /**
  * routes/system-health.js
  * Implements /api/health, /api/ping, /api/version
+ * Extended in S1-T2 to include Property & Unit entity counts
  */
 
 import express from "express";
@@ -14,17 +15,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const startTime = Date.now();
-const VERSION = "0.3.0";
+const VERSION = "0.3.1"; // Incremented after S1-T2 integration
 
 // --- /api/health ------------------------------------------------------------
 router.get("/health", (_req, res) => {
   const dbPath = process.env.DB_PATH || "data/dev/marketplace.dev.db";
   let connected = false;
   let migrationCount = 0;
+  let entityCounts = { properties: 0, units: 0 };
 
   try {
     if (fs.existsSync(path.resolve(dbPath))) {
       connected = true;
+
+      // --- Migrations count ---
       const row = db
         .prepare(
           "SELECT COUNT(*) AS cnt FROM sqlite_master WHERE type='table' AND name='migrations'"
@@ -33,6 +37,28 @@ router.get("/health", (_req, res) => {
       if (row && row.cnt > 0) {
         const c = db.prepare("SELECT COUNT(*) AS m FROM migrations").get();
         migrationCount = c ? c.m : 0;
+      }
+
+      // --- Entity counts (S1-T2) ---
+      const tables = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('properties','units')"
+        )
+        .all()
+        .map((r) => r.name);
+
+      if (tables.includes("properties")) {
+        const { count } = db
+          .prepare("SELECT COUNT(*) AS count FROM properties")
+          .get();
+        entityCounts.properties = count;
+      }
+
+      if (tables.includes("units")) {
+        const { count } = db
+          .prepare("SELECT COUNT(*) AS count FROM units")
+          .get();
+        entityCounts.units = count;
       }
     }
   } catch (err) {
@@ -46,6 +72,7 @@ router.get("/health", (_req, res) => {
       connected,
       path: path.resolve(dbPath),
       migrations: migrationCount,
+      entities: entityCounts,
     },
   });
 });
@@ -57,7 +84,11 @@ router.get("/ping", (_req, res) => {
 
 // --- /api/version -----------------------------------------------------------
 router.get("/version", (_req, res) => {
-  res.json({ ok: true, version: VERSION, started: new Date(startTime).toISOString() });
+  res.json({
+    ok: true,
+    version: VERSION,
+    started: new Date(startTime).toISOString(),
+  });
 });
 
 export default router;
