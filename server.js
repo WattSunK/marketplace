@@ -68,6 +68,14 @@ app.use("/api/properties", propertiesRoutes); // /api/properties
 app.use("/api/leases", leasesRouter);         // /api/leases
 app.use("/api/payments", paymentsRouter);     // /api/payments
 
+// --- Financial Layer Routes ---
+import invoicesRouter from "./routes/invoices.js";
+import receiptsRouter from "./routes/receipts.js";
+
+app.use("/api/invoices", invoicesRouter);
+app.use("/api/receipts", receiptsRouter);
+
+
 // ==================================================
 // 3️⃣  Role-Based Test Endpoints
 // ==================================================
