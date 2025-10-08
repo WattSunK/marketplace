@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS integrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider TEXT NOT NULL,
+  type TEXT NOT NULL,
+  status TEXT DEFAULT 'inactive',
+  api_key TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

@@ -56,3 +56,41 @@ CREATE TABLE IF NOT EXISTS integrations (
 
 ## 🔜 Next Phase Preview
 S1-T8 will evolve light integrations into **live notification delivery** and **real payment confirmation**, building on these stubs.
+
+
+
+# S1-T7 Kickoff Notes — Light Integration Phase
+_Date: 08 Oct 2025_
+
+## 🎯 Objective
+Begin lightweight integrations with third-party services (notifications, billing gateways) under the Light Integration Strategy.
+
+## 🧱 Scope
+| Component | Description |
+|------------|--------------|
+| Integration Registry | SQLite table `integrations` to store provider, type, status, and API keys. |
+| Notification Hook | `/api/hooks/notify` endpoint for simulated outbound notifications (email/SMS/webhook). |
+| Billing Gateway Stub | Placeholder for external payment gateways (e.g., Flutterwave, Stripe, Pesapal). |
+| Config & Secrets Layer | `.env` extension and `config/integrations.mjs` loader for third-party credentials. |
+| Test Harness | `tests/api_integration_smoke.sh` verifies registry CRUD + notification hook. |
+
+## ⚙️ SQL Migration Outline
+```sql
+CREATE TABLE IF NOT EXISTS integrations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider TEXT NOT NULL,
+  type TEXT NOT NULL,
+  status TEXT DEFAULT 'inactive',
+  api_key TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+## 🧪 Verification Plan
+| Step | Endpoint | Expected Result |
+|------|-----------|----------------|
+| 1 | POST /api/integrations | Creates a new provider entry |
+| 2 | GET /api/integrations | Lists registered integrations |
+| 3 | POST /api/hooks/notify | Simulated outbound notification logged |
+| 4 | GET /api/health | Includes integrations_registered count |
+| 5 | bash tests/api_integration_smoke.sh | All checks PASS |
