@@ -1,4 +1,4 @@
-// routes/system-health.js — baseline + S1-T5 incremental linkage counts
+// routes/system-health.js — baseline + S1-T6 linkage + financial counts
 import express from "express";
 import fs from "fs";
 import path from "path";
@@ -6,7 +6,7 @@ import db from "../connector/db.mjs";
 
 const router = express.Router();
 const startTime = Date.now();
-const VERSION = "0.3.3"; // increment after S1-T5
+const VERSION = "0.3.4"; // incremented after S1-T6
 
 // --- /api/health ------------------------------------------------------------
 router.get("/health", (_req, res) => {
@@ -15,11 +15,14 @@ router.get("/health", (_req, res) => {
   let migrationCount = 0;
   let entityCounts = { properties: 0, units: 0, leases: 0, payments: 0 };
   let paymentsLinkage = { linked: 0, unlinked: 0 };
+  let invoicesIssued = 0;
+  let receiptsLogged = 0;
 
   try {
     if (fs.existsSync(path.resolve(dbPath))) {
       connected = true;
 
+      // --- Migration count
       const row = db.prepare(
         "SELECT COUNT(*) AS cnt FROM sqlite_master WHERE type='table' AND name='migrations'"
       ).get();
@@ -28,6 +31,7 @@ router.get("/health", (_req, res) => {
         migrationCount = c ? c.m : 0;
       }
 
+      // --- Core entity counts
       const tables = db
         .prepare(
           "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('properties','units','leases','payments')"
@@ -52,7 +56,7 @@ router.get("/health", (_req, res) => {
         entityCounts.payments = count;
       }
 
-      // 🔹 S1-T5 enhancement: count linked/unlinked payments
+      // 🔹 S1-T5: linked/unlinked payments
       try {
         const link = db
           .prepare(
@@ -65,6 +69,27 @@ router.get("/health", (_req, res) => {
         if (link) paymentsLinkage = link;
       } catch (err) {
         console.error("[system-health:S1-T5]", err.message);
+      }
+
+      // 🔹 S1-T6: invoices & receipts counts
+      try {
+        const extraTables = db
+          .prepare(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('invoices','receipts')"
+          )
+          .all()
+          .map((r) => r.name);
+
+        if (extraTables.includes("invoices")) {
+          const { count } = db.prepare("SELECT COUNT(*) AS count FROM invoices").get();
+          invoicesIssued = count;
+        }
+        if (extraTables.includes("receipts")) {
+          const { count } = db.prepare("SELECT COUNT(*) AS count FROM receipts").get();
+          receiptsLogged = count;
+        }
+      } catch (err) {
+        console.error("[system-health:S1-T6]", err.message);
       }
     }
   } catch (err) {
@@ -80,6 +105,8 @@ router.get("/health", (_req, res) => {
       migrations: migrationCount,
       entities: entityCounts,
       payments_linkage: paymentsLinkage,
+      invoices_issued: invoicesIssued,
+      receipts_logged: receiptsLogged,
     },
     version: VERSION,
   });
