@@ -23,7 +23,7 @@ router.get("/", (req, res) => {
   try {
     const { lease_id, status } = req.query;
     let sql = `
-      SELECT i.*, l.tenant_name, l.unit_id
+      SELECT i.*, l.unit_id
       FROM invoices i
       JOIN leases l ON i.lease_id = l.id
       WHERE 1=1
@@ -41,7 +41,7 @@ router.get("/", (req, res) => {
 router.get("/:id", (req, res) => {
   try {
     const invoice = db.prepare(`
-      SELECT i.*, l.tenant_name, l.unit_id
+      SELECT i.*, l.unit_id
       FROM invoices i
       LEFT JOIN leases l ON i.lease_id = l.id
       WHERE i.id = ?
