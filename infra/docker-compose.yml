@@ -26,7 +26,7 @@ services:
   killbill:
     image: killbill/killbill:latest
     restart: always
-    ports: ["8080:8080"]
+    ports: ["8088:8080"]
     environment:
       - KILLBILL_DATABASE_URL=jdbc:postgresql://postgres:5432/killbill
       - KILLBILL_DATABASE_USER=marketuser
