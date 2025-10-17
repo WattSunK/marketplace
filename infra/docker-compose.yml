@@ -14,7 +14,7 @@ services:
       POSTGRES_PASSWORD: marketpass
       POSTGRES_DB: marketplace
     volumes:
-      - /volume1/docker/postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
 
@@ -31,3 +31,6 @@ services:
       - KILLBILL_DATABASE_URL=jdbc:postgresql://postgres:5432/killbill
       - KILLBILL_DATABASE_USER=marketuser
       - KILLBILL_DATABASE_PASSWORD=marketpass
+  volumes:
+    postgres_data:
+      driver: local
